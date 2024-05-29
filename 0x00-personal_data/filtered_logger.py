@@ -4,12 +4,13 @@ import re
 import logging
 
 
-def filter_datum(fields: list, redaction: str, message: str, separator: str) -> str:
+def filter_datum(fields, redaction, message, separator):
     """returns the log message obfuscated:"""
     for field in fields:
         message = re.sub(rf'{field}=.+?{separator}',
                          f'{field}={redaction}{separator}', message)
     return message
+
 
 class RedactingFormatter(logging.Formatter):
     """ Redacting Formatter class
@@ -24,8 +25,19 @@ class RedactingFormatter(logging.Formatter):
         self.fields = fields
 
     def format(self, record: logging.LogRecord) -> str:
-        record.msg = self.filter_fields(record.msg)
+        record.msg = filter_datum(self.fields, self.REDACTION, record.msg, self.SEPARATOR)
         return super().format(record)
 
-    def filter_fields(self, message: str) -> str:
-        return filter_datum(self.fields, self.REDACTION, message, self.SEPARATOR)
+
+PII_FIELDS = ('name', 'email', 'phone', 'ssn', 'password')
+
+
+def get_logger() -> logging.Logger:
+    """Returns a logging.Logger object configured for user data"""
+    logger = logging.getLogger('user_data')
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(RedactingFormatter(PII_FIELDS))
+    logger.addHandler(stream_handler)
+    return logger
