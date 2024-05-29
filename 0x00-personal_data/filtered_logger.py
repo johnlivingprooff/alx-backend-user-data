@@ -2,6 +2,9 @@
 """returns the log message obfuscated:"""
 import re
 import logging
+import os
+import mysql.connector
+from mysql.connector.connection import MySQLConnection
 
 
 def filter_datum(fields, redaction, message, separator):
@@ -41,3 +44,39 @@ def get_logger() -> logging.Logger:
     stream_handler.setFormatter(RedactingFormatter(PII_FIELDS))
     logger.addHandler(stream_handler)
     return logger
+
+
+def get_db() -> MySQLConnection:
+    """Returns a connector to the MySQL database"""
+    # Get database credentials from environment variables
+    db_host = os.getenv('PERSONAL_DATA_DB_HOST', 'localhost')
+    db_user = os.getenv('PERSONAL_DATA_DB_USERNAME', 'root')
+    db_password = os.getenv('PERSONAL_DATA_DB_PASSWORD', '')
+    db_name = os.getenv('PERSONAL_DATA_DB_NAME', '')
+
+    # Connect to the database
+    return mysql.connector.connect(
+        host=db_host,
+        user=db_user,
+        password=db_password,
+        database=db_name
+    )
+
+
+if __name__ == '__main__':
+    """Main function that retrieves and logs user data from the database"""
+    logger = get_logger()
+
+    try:
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM users")
+        
+        for row in cursor:
+            msg = "; ".join(f"{key}={value}" for key, value in row.items())
+            logger.info(msg)
+        
+        cursor.close()
+        db.close()
+    except mysql.connector.Error as err:
+        logger.error(f"Error: {err}")
