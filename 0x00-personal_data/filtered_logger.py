@@ -8,11 +8,8 @@ from mysql.connector.connection import MySQLConnection
 
 
 def filter_datum(fields, redaction, message, separator):
-    """returns the log message obfuscated:"""
-    for field in fields:
-        message = re.sub(rf'{field}=.+?{separator}',
-                         f'{field}={redaction}{separator}', message)
-    return message
+    return re.sub(f'({"|".join(fields)})=[^{separator}]*',
+                  lambda m: f'{m.group().split("=")[0]}={redaction}', message)
 
 
 class RedactingFormatter(logging.Formatter):
@@ -45,6 +42,24 @@ def get_logger() -> logging.Logger:
     logger.addHandler(stream_handler)
     return logger
 
+def main():
+    """Main function that retrieves and logs user data from the database"""
+    logger = get_logger()
+
+    try:
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM users")
+        
+        for row in cursor:
+            msg = "; ".join(f"{key}={value}" for key, value in row.items())
+            logger.info(msg)
+        
+        cursor.close()
+        db.close()
+    except mysql.connector.Error as err:
+        logger.error(f"Error: {err}")
+
 
 def get_db() -> MySQLConnection:
     """Returns a connector to the MySQL database"""
@@ -64,19 +79,4 @@ def get_db() -> MySQLConnection:
 
 
 if __name__ == '__main__':
-    """Main function that retrieves and logs user data from the database"""
-    logger = get_logger()
-
-    try:
-        db = get_db()
-        cursor = db.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM users")
-        
-        for row in cursor:
-            msg = "; ".join(f"{key}={value}" for key, value in row.items())
-            logger.info(msg)
-        
-        cursor.close()
-        db.close()
-    except mysql.connector.Error as err:
-        logger.error(f"Error: {err}")
+    main()
