@@ -5,6 +5,7 @@ Route module for the API
 from os import getenv
 from api.v1.views import app_views
 from api.v1.auth.auth import Auth
+from api.v1.auth.basic_auth import BasicAuth
 from flask import Flask, jsonify, abort, request
 from flask_cors import (CORS, cross_origin)
 import os
@@ -41,7 +42,8 @@ def forbidden(error) -> str:
 def before_request():
     """ Before request
     """
-    excluded_paths = ['/api/v1/status/', '/api/v1/unauthorized/', '/api/v1/forbidden/']
+    excluded_paths = ['/api/v1/status/', '/api/v1/unauthorized/',
+                      '/api/v1/forbidden/']
     if auth.require_auth(request.path, excluded_paths):
         if not auth.authorization_header(request):
             abort(401)
