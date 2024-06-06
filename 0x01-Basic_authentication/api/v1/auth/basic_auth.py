@@ -55,7 +55,13 @@ class BasicAuth(Auth):
         if not isinstance(user_email, str) or not isinstance(user_pwd, str):
             return None
         try:
-            return User()
+            user = User.search({"email": user_email})
+            if user is None or len(user) == 0:
+                return None
+            user = user[0]
+            if user.is_valid_password(user_pwd):
+                return user
+            return None
         except Exception:
             return None
 
@@ -64,6 +70,5 @@ class BasicAuth(Auth):
         auth_header = self.authorization_header(request)
         base64_header = self.extract_base64_authorization_header(auth_header)
         decoded_header = self.decode_base64_authorization_header(base64_header)
-        user_credentials = self.extract_user_credentials(decoded_header)
-        return self.user_object_from_credentials(user_credentials[0],
-                                                 user_credentials[1])
+        user_email, user_pwd = self.extract_user_credentials(decoded_header)
+        return self.user_object_from_credentials(user_email, user_pwd)
