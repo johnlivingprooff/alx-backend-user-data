@@ -5,7 +5,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.session import Session
-from sqlalchemy.orm.exc import NoResultFound, InvalidRequestError
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import InvalidRequestError
 
 from user import Base, User
 
@@ -38,10 +39,8 @@ class DB:
             raise ValueError("Email and hashed_password must be provided")
 
         # Check if the user already exists
-        existing_user = self._session.query(User).filter_by(
-                                                            email=email
-                                                            ).first()
-        if existing_user:
+        user_exists = self._session.query(User).filter_by(email=email).first()
+        if user_exists:
             raise ValueError(f"User with email {email} already exists")
 
         try:
@@ -53,15 +52,22 @@ class DB:
             raise e
 
         return new_user
-    
+
     def find_user_by(self, **kwargs) -> User:
         """Find a user by a given attribute
         """
         if not kwargs:
-            raise InvalidRequestError("No attribute provided")
+            raise InvalidRequestError("No attributes provided for search")
+
+        query = self._session.query(User)
+        for key, value in kwargs.items():
+            if not hasattr(User, key):
+                raise InvalidRequestError(f"Invalid attribute: {key}")
+            query = query.filter_by(**{key: value})
 
         try:
-            user = self._session.query(User).filter_by(**kwargs).one()
+            return query.one()
         except NoResultFound:
-            raise NoResultFound("No user found with the provided attribute")
-        return user
+            raise NoResultFound("No user found with the provided attributes")
+        except Exception as e:
+            raise e
